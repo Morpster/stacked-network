@@ -1,0 +1,54 @@
+name: Network safety
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  no-network:
+    name: no-network-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the new commit
+        uses: actions/checkout@v4
+        with:
+          path: candidate
+          persist-credentials: false
+
+      - name: Pick the trusted commit to take the rules from
+        id: trusted
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "$EVENT" = "pull_request" ]; then
+            sha="$PR_BASE"
+          else
+            sha="$BEFORE"
+          fi
+          # A brand-new branch or the very first push has no earlier commit.
+          if [ -z "$sha" ] || [ "$sha" = "0000000000000000000000000000000000000000" ]; then
+            sha=""
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Check out the trusted commit
+        if: steps.trusted.outputs.sha != ''
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.trusted.outputs.sha }}
+          path: trusted
+          persist-credentials: false
+
+      - name: Run the trusted rules against the new commit
+        run: |
+          if [ -f trusted/scripts/check-no-network.mjs ]; then
+            node trusted/scripts/check-no-network.mjs candidate
+          else
+            echo "No trusted checker yet; using the one in this commit (first push)."
+            node candidate/scripts/check-no-network.mjs candidate
+          fi

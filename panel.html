@@ -1,0 +1,116 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Requests</title>
+
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #0c0c0d;
+    --muted: #737373;
+    --control-bg: #f0f0f4;
+    --control-hover: #e0e0e6;
+    --border: #d7d7db;
+    --accent: #0a84ff;
+    color-scheme: light;
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #232327;
+    --fg: #f9f9fa;
+    --muted: #b1b1b3;
+    --control-bg: #38383d;
+    --control-hover: #4a4a4f;
+    --border: #4a4a4f;
+    --accent: #75bfff;
+    color-scheme: dark;
+  }
+
+  body {
+    margin: 0;
+    padding: 12px;
+    font: message-box;
+    background: var(--bg);
+    color: var(--fg);
+  }
+
+  :root:not([data-theme="dark"]) body {
+    border-left: 4px solid #b1b1b3;
+    min-height: 100vh;
+    box-sizing: border-box;
+  }
+
+  button,
+  input {
+    font: inherit;
+    color: var(--fg);
+    background: var(--control-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px 8px;
+  }
+
+  button:hover:not(:disabled) {
+    background: var(--control-hover);
+  }
+
+  #header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  #toolbar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  #filter {
+    flex: 1;
+  }
+
+  #requests {
+    display: grid;
+    gap: 4px;
+  }
+
+  .request {
+    padding: 8px;
+    text-align: left;
+    overflow-wrap: anywhere;
+  }
+
+  .request[aria-current="true"] {
+    outline: 2px solid var(--accent);
+  }
+
+  #details {
+    margin-top: 16px;
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+  }
+
+  .auth-headers summary {
+    cursor: pointer;
+    color: var(--muted);
+  }
+
+  pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+</style>
+
+<div id="header">
+  <h2>Requests</h2>
+  <button id="theme-toggle" type="button">Theme</button>
+</div>
+<div id="toolbar">
+  <input id="filter" type="search" placeholder="Filter by URL" aria-label="Filter by URL">
+  <button id="clear">Clear</button>
+</div>
+<div id="requests">Waiting for requests…</div>
+<section id="details" aria-live="polite">Select a request to see its details.</section>
+
+<script src="no-network.js"></script>
+<script src="panel.js"></script>

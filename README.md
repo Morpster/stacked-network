@@ -1,0 +1,24 @@
+# Stacked Network
+
+Stacked Network is a Firefox DevTools extension that shows finished network requests in a single-column **Requests** panel. It is designed for inspecting requests and responses without switching between multiple views.
+
+## Features
+
+- Browse request methods, status codes, and URLs; filter the list by URL or clear it.
+- Inspect request and response headers, with authorization headers tucked into an expandable section.
+- View request bodies and load response bodies on demand, with a raw/pretty toggle for JSON.
+- Switch between light and dark themes; the choice is saved locally.
+
+The extension uses the DevTools network API to display requests from the inspected page. It does not send request data to a server: its content security policy blocks outbound connections from extension pages, and `no-network.js` blocks network APIs there as an additional guard.
+
+## Try it in Firefox
+
+1. Open `about:debugging` in Firefox and select **This Firefox**.
+2. Choose **Load Temporary Add-on…** and select `manifest.json` from this repository.
+3. Open DevTools for a page and select the **Requests** panel. Reload the page to capture requests.
+
+Temporary add-ons are removed when Firefox restarts.
+
+## Ownership and license
+
+Copyright (c) 2026 Martin Gravdal. Released under the [MIT License](LICENSE).

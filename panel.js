@@ -22,6 +22,24 @@ themeToggle.addEventListener("click", () => {
   applyTheme(theme);
 });
 
+const paletteToggle = document.querySelector("#palette-toggle");
+const PALETTE_KEY = "stacked-network-palette";
+
+function applyPalette(palette) {
+  document.documentElement.dataset.palette = palette;
+  paletteToggle.setAttribute("aria-pressed", String(palette === "vivid"));
+  paletteToggle.textContent = `Palette: ${palette}`;
+}
+
+applyPalette(localStorage.getItem(PALETTE_KEY) === "vivid" ? "vivid" : "classic");
+
+paletteToggle.addEventListener("click", () => {
+  const palette =
+    document.documentElement.dataset.palette === "vivid" ? "classic" : "vivid";
+  localStorage.setItem(PALETTE_KEY, palette);
+  applyPalette(palette);
+});
+
 const bracketToggle = document.querySelector("#bracket-toggle");
 const BRACKETS_KEY = "stacked-network-bracket-colors";
 
@@ -45,30 +63,248 @@ let selectedRequest = null;
 browser.devtools.network.onRequestFinished.addListener(request => {
   requests.push(request);
   renderRequests();
+  methodFilter.refresh();
+  statusFilter.refresh();
 });
 
 filterElement.addEventListener("input", renderRequests);
 clearButton.addEventListener("click", clearAll);
 
+// A compact multi-select dropdown. Nothing selected means "show all".
+// Options come from the captured requests, so only real values appear.
+function createMultiFilter(root, { label, noun, getValue, compare, renderValue }) {
+  const trigger = root.querySelector(".multi-filter-button");
+  const menu = root.querySelector(".multi-filter-menu");
+  const selected = new Set();
+
+  function renderTrigger() {
+    const values = [...selected].sort(compare);
+    trigger.replaceChildren();
+    if (values.length === 0) {
+      trigger.append(label);
+    } else {
+      trigger.append(renderValue(values[0]));
+      if (values.length > 1) {
+        const count = document.createElement("span");
+        count.className = "multi-filter-count";
+        count.textContent = `+${values.length - 1}`;
+        trigger.append(" ", count);
+      }
+    }
+    root.dataset.active = String(values.length > 0);
+    trigger.setAttribute(
+      "aria-label",
+      values.length === 0 ? `${label}: all` : `${label}: ${values.join(", ")}`
+    );
+  }
+
+  // Last rendered option list, so refreshes can skip rebuilding (and
+  // stealing keyboard focus) when nothing actually changed.
+  let renderedKey = null;
+  let reset = null;
+
+  function updateReset() {
+    if (reset) reset.disabled = selected.size === 0;
+  }
+
+  function renderMenu() {
+    const values = [...new Set([...requests.map(getValue), ...selected])].sort(compare);
+    const key = values.join("\n");
+    if (key === renderedKey) {
+      updateReset();
+      return;
+    }
+    renderedKey = key;
+
+    // Remember which item had focus so it can be restored after rebuilding.
+    const focused = menu.contains(document.activeElement)
+      ? document.activeElement.dataset.key
+      : undefined;
+    menu.replaceChildren();
+    reset = null;
+
+    if (values.length === 0) {
+      const empty = document.createElement("span");
+      empty.className = "multi-filter-empty";
+      empty.textContent = `No ${noun} yet`;
+      menu.append(empty);
+      return;
+    }
+
+    for (const value of values) {
+      const option = document.createElement("button");
+      option.type = "button";
+      option.className = "multi-filter-option";
+      option.dataset.key = String(value);
+      option.setAttribute("aria-pressed", String(selected.has(value)));
+      const check = document.createElement("span");
+      check.className = "multi-filter-check";
+      option.append(check, renderValue(value));
+      option.addEventListener("click", () => {
+        if (selected.has(value)) selected.delete(value);
+        else selected.add(value);
+        option.setAttribute("aria-pressed", String(selected.has(value)));
+        updateReset();
+        renderTrigger();
+        renderRequests();
+      });
+      menu.append(option);
+    }
+
+    reset = document.createElement("button");
+    reset.type = "button";
+    reset.className = "multi-filter-reset";
+    reset.dataset.key = "reset";
+    reset.textContent = "Show all";
+    reset.addEventListener("click", () => {
+      selected.clear();
+      for (const option of menu.querySelectorAll(".multi-filter-option")) {
+        option.setAttribute("aria-pressed", "false");
+      }
+      updateReset();
+      renderTrigger();
+      renderRequests();
+      // Drops options that only existed because they were selected.
+      renderMenu();
+      // Keep focus inside the menu now that this button is disabled.
+      menu.querySelector(".multi-filter-option")?.focus();
+    });
+    updateReset();
+    menu.append(reset);
+
+    if (focused !== undefined) {
+      for (const item of menu.querySelectorAll("button")) {
+        if (item.dataset.key === focused) item.focus();
+      }
+    }
+  }
+
+  function setExpanded(expanded) {
+    menu.hidden = !expanded;
+    trigger.setAttribute("aria-expanded", String(expanded));
+    if (expanded) renderMenu();
+  }
+
+  trigger.addEventListener("click", () => setExpanded(menu.hidden));
+  document.addEventListener("click", event => {
+    if (!root.contains(event.target)) setExpanded(false);
+  });
+  root.addEventListener("keydown", event => {
+    if (event.key === "Escape" && !menu.hidden) {
+      setExpanded(false);
+      trigger.focus();
+    }
+  });
+
+  renderTrigger();
+  return {
+    matches: value => selected.size === 0 || selected.has(value),
+    // Keep a visible menu in sync as new requests arrive.
+    refresh: () => { if (!menu.hidden) renderMenu(); },
+    // Drops all selections, e.g. when the captured requests are cleared.
+    clear: () => {
+      selected.clear();
+      renderTrigger();
+      if (!menu.hidden) renderMenu();
+    },
+  };
+}
+
+const methodFilter = createMultiFilter(document.querySelector("#method-filter"), {
+  label: "Method",
+  noun: "methods",
+  getValue: request => request.request.method,
+  compare: (a, b) => a.localeCompare(b),
+  renderValue: createMethodSpan,
+});
+
+const statusFilter = createMultiFilter(document.querySelector("#status-filter"), {
+  label: "Status",
+  noun: "statuses",
+  getValue: request => request.response.status,
+  compare: (a, b) => a - b,
+  renderValue: createStatusSpan,
+});
+
+// The list is capped at 40% of the viewport height and scrolls on its own;
+// "Expand list" lifts the cap so the page scrolls instead.
+const expandButton = document.querySelector("#expand-list");
+
+function setListExpanded(expanded) {
+  requestsElement.dataset.expanded = String(expanded);
+  expandButton.setAttribute("aria-pressed", String(expanded));
+  expandButton.textContent = expanded ? "Collapse list" : "Expand list";
+  updateScrollHints();
+}
+
+// Shows the edge fades (see #requests-frame CSS) only when the list
+// actually has hidden content in that direction.
+const requestsFrame = document.querySelector("#requests-frame");
+
+function updateScrollHints() {
+  const { scrollTop, scrollHeight, clientHeight } = requestsElement;
+  requestsFrame.dataset.moreAbove = String(scrollTop > 1);
+  requestsFrame.dataset.moreBelow = String(scrollHeight - scrollTop - clientHeight > 1);
+}
+
+requestsElement.addEventListener("scroll", updateScrollHints, { passive: true });
+new ResizeObserver(updateScrollHints).observe(requestsElement);
+
+// Up/Down arrows move the selection to the previous/next request.
+requestsElement.addEventListener("keydown", event => {
+  if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+  const buttons = [...requestsElement.querySelectorAll(".request")];
+  const index = buttons.indexOf(document.activeElement);
+  if (index === -1) return;
+  event.preventDefault();
+  buttons[index + (event.key === "ArrowDown" ? 1 : -1)]?.click();
+});
+
+setListExpanded(false);
+expandButton.addEventListener("click", () => {
+  setListExpanded(requestsElement.dataset.expanded !== "true");
+});
+
 function clearAll() {
   requests.length = 0;
   selectedRequest = null;
+  filterElement.value = "";
+  // Selections only make sense for captured values, so reset them too.
+  methodFilter.clear();
+  statusFilter.clear();
   detailsElement.textContent = "Select a request to see its details.";
   renderRequests();
 }
 
 function renderRequests() {
+  // Stay pinned to the newest request if the user was already at the
+  // bottom; otherwise keep their scroll position while re-rendering.
+  const { scrollTop, scrollHeight, clientHeight } = requestsElement;
+  const wasAtBottom = scrollHeight - scrollTop - clientHeight < 8;
+  renderRequestList();
+  requestsElement.scrollTop = wasAtBottom ? requestsElement.scrollHeight : scrollTop;
+  updateScrollHints();
+}
+
+function renderRequestList() {
   requestsElement.replaceChildren();
 
   const filter = filterElement.value.trim().toLowerCase();
-  const visible = filter
-    ? requests.filter(r => r.request.url.toLowerCase().includes(filter))
-    : requests;
+  const visible = requests.filter(r =>
+    (!filter || r.request.url.toLowerCase().includes(filter)) &&
+    methodFilter.matches(r.request.method) &&
+    statusFilter.matches(r.response.status)
+  );
 
   if (visible.length === 0) {
-    requestsElement.textContent = requests.length === 0
-      ? "No finished requests yet. Reload the page to capture some."
-      : "No requests match the filter.";
+    if (requests.length === 0) {
+      requestsElement.replaceChildren(createCat(
+        "sleeping",
+        "Waiting for requests… reload the page to capture some."
+      ));
+    } else {
+      requestsElement.replaceChildren(createCat("confused", "No requests match the filter."));
+    }
     return;
   }
 
@@ -81,7 +317,8 @@ function renderRequests() {
       createMethodSpan(request.request.method),
       "  ",
       createStatusSpan(request.response.status),
-      `  ${base}`
+      "  ",
+      ...highlightMatches(base, filter)
     );
     if (params.length > 0) {
       const badge = document.createElement("span");
@@ -93,12 +330,45 @@ function renderRequests() {
 
     button.addEventListener("click", () => {
       selectedRequest = request;
+      setListExpanded(false);
       renderRequests();
       renderDetails(request);
+      // The list is rebuilt on render, so refocus the new button to keep
+      // arrow-key navigation going.
+      const current = requestsElement.querySelector('.request[aria-current="true"]');
+      current?.focus({ preventScroll: true });
+      current?.scrollIntoView({ block: "nearest" });
+      // scrollIntoView ignores the list's padding, so snap fully to the
+      // ends for the first/last request; otherwise the scroll hints stay on.
+      if (current && !current.previousElementSibling) requestsElement.scrollTop = 0;
+      if (current && !current.nextElementSibling) requestsElement.scrollTop = requestsElement.scrollHeight;
     });
 
     requestsElement.append(button);
   }
+}
+
+// Splits `text` into plain strings and highlighted spans for every
+// case-insensitive occurrence of `filter` (already lowercased).
+function highlightMatches(text, filter) {
+  if (!filter) return [text];
+  const lower = text.toLowerCase();
+  // Lowercasing can change length for some characters; skip highlighting
+  // rather than risk marking the wrong span.
+  if (lower.length !== text.length) return [text];
+
+  const parts = [];
+  let last = 0;
+  for (let i = lower.indexOf(filter); i !== -1; i = lower.indexOf(filter, last)) {
+    if (i > last) parts.push(text.slice(last, i));
+    const mark = document.createElement("span");
+    mark.className = "filter-match";
+    mark.textContent = text.slice(i, i + filter.length);
+    parts.push(mark);
+    last = i + filter.length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return parts;
 }
 
 // Splits a URL into everything but the query string, plus decoded params.
@@ -314,15 +584,16 @@ function buildJsonNode(value, depth) {
     return node;
   }
 
+  // Each entry is its own block with a hanging indent (see .json-entry CSS),
+  // so wrapped long values line up with where the entry's text starts.
   const children = createSpan("json-children", "");
-  const indent = INDENT.repeat(depth + 1);
   entries.forEach(([key, item], index) => {
-    children.append(`\n${indent}`);
-    if (key !== null) children.append(createSpan("json-key", JSON.stringify(key)), ": ");
-    children.append(buildJsonNode(item, depth + 1));
-    if (index < entries.length - 1) children.append(",");
+    const entry = createSpan("json-entry", INDENT);
+    if (key !== null) entry.append(createSpan("json-key", JSON.stringify(key)), ": ");
+    entry.append(buildJsonNode(item, depth + 1));
+    if (index < entries.length - 1) entry.append(",");
+    children.append(entry);
   });
-  children.append(`\n${INDENT.repeat(depth)}`);
 
   const count = entries.length;
   const noun = isArray ? (count === 1 ? "item" : "items") : (count === 1 ? "key" : "keys");
@@ -476,3 +747,40 @@ function renderDetails(request) {
 
   detailsElement.append(bodyButton);
 }
+
+// Empty states: small ASCII cats. "sleeping" (snoring) is shown while no
+// requests have been captured; "confused" when requests exist but none
+// match the filters. Animated bits are separate spans so CSS can move them.
+function createCat(style, text) {
+  const wrapper = document.createElement("span");
+  wrapper.className = "waiting-cat";
+
+  const art = document.createElement("pre");
+  art.className = "waiting-cat-art";
+  art.setAttribute("aria-hidden", "true");
+
+  if (style === "sleeping") {
+    const snore = createSpan("waiting-cat-snore", "zZz");
+    art.append(
+      "    |\\      _,,,---,,_\n",
+      snore, " /,`.-'`'    -.  ;-;;,_\n",
+      "   |,4-  ) )-,_. ,\\ (  `'-'\n",
+      "  '---''(_/--'  `-'\\_)"
+    );
+  } else {
+    const eyes = createSpan("waiting-cat-eyes", "o.O");
+    const puzzled = createSpan("waiting-cat-puzzled", "?");
+    art.append(
+      " /\\_/\\  ", puzzled, "\n",
+      "( ", eyes, " )\n",
+      " > ~ <\n",
+      "(_) (_)"
+    );
+  }
+
+  const message = createSpan("waiting-cat-message", text);
+  wrapper.append(art, message);
+  return wrapper;
+}
+
+renderRequests();

@@ -53,6 +53,18 @@
     background: var(--control-hover);
   }
 
+  /* Header + toolbar stay pinned while the page scrolls. Negative margins
+     stretch the background over the body padding so nothing shows through. */
+  #sticky-bar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    margin: -12px -12px 8px;
+    padding: 12px 12px 4px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+  }
+
   #header {
     display: flex;
     align-items: center;
@@ -69,9 +81,141 @@
     flex: 1;
   }
 
+  .multi-filter {
+    position: relative;
+  }
+
+  .multi-filter-button {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 100%;
+    white-space: nowrap;
+  }
+
+  .multi-filter-button::after {
+    content: "▾";
+    color: var(--muted);
+    font-size: 0.85em;
+  }
+
+  .multi-filter[data-active="true"] .multi-filter-button {
+    border-color: var(--accent);
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+
+  .multi-filter-count {
+    padding: 0 5px;
+    border-radius: 8px;
+    background: var(--accent);
+    color: var(--bg);
+    font-size: 0.8em;
+    font-weight: 600;
+  }
+
+  .multi-filter-menu {
+    position: absolute;
+    z-index: 10;
+    right: 0;
+    margin-top: 4px;
+    min-width: 140px;
+    max-height: 50vh;
+    overflow-y: auto;
+    display: grid;
+    padding: 4px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+  }
+
+  .multi-filter-menu[hidden] {
+    display: none;
+  }
+
+  .multi-filter-option,
+  .multi-filter-reset {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 0;
+    background: none;
+    text-align: left;
+    padding: 4px 8px;
+  }
+
+  .multi-filter-check {
+    width: 12px;
+    height: 12px;
+    flex: none;
+    border: 1px solid var(--muted);
+    border-radius: 3px;
+  }
+
+  .multi-filter-option[aria-pressed="true"] .multi-filter-check {
+    background: var(--accent);
+    border-color: var(--accent);
+    box-shadow: inset 0 0 0 2px var(--bg);
+  }
+
+  .multi-filter-reset {
+    margin-top: 4px;
+    border-top: 1px solid var(--border);
+    border-radius: 0;
+    color: var(--muted);
+  }
+
+  .multi-filter-empty {
+    padding: 4px 8px;
+    color: var(--muted);
+  }
+
   #requests {
     display: grid;
+    align-content: start;
     gap: 4px;
+    max-height: 40vh;
+    overflow-y: auto;
+    padding: 2px; /* keeps the selected outline from being clipped */
+  }
+
+  #requests[data-expanded="true"] {
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  /* Fades at the top/bottom edge when the list has more to scroll to. */
+  #requests-frame {
+    position: relative;
+  }
+
+  #requests-frame::before,
+  #requests-frame::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 24px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  #requests-frame::before {
+    top: 0;
+    background: linear-gradient(var(--bg), transparent);
+    border-top: 2px solid var(--accent);
+  }
+
+  #requests-frame::after {
+    bottom: 0;
+    background: linear-gradient(transparent, var(--bg));
+    border-bottom: 2px solid var(--accent);
+  }
+
+  #requests-frame[data-more-above="true"]::before,
+  #requests-frame[data-more-below="true"]::after {
+    opacity: 1;
   }
 
   .request {
@@ -82,6 +226,75 @@
 
   .request[aria-current="true"] {
     outline: 2px solid var(--accent);
+  }
+
+  .request .filter-match {
+    background: none;
+    color: var(--accent);
+    font-weight: 700;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+  }
+
+  .waiting-cat {
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+    padding: 16px 0;
+    color: var(--muted);
+  }
+
+  .waiting-cat-art {
+    margin: 0;
+    color: var(--accent);
+    line-height: 1.2;
+    animation: cat-breathe 3s ease-in-out infinite;
+  }
+
+  .waiting-cat-eyes {
+    display: inline-block;
+    animation: cat-blink 4s infinite;
+  }
+
+  .waiting-cat-puzzled {
+    display: inline-block;
+    font-weight: 700;
+    animation: cat-puzzled 1.8s ease-in-out infinite;
+  }
+
+  @keyframes cat-puzzled {
+    0%, 100% { transform: rotate(-12deg) translateY(0); }
+    50% { transform: rotate(12deg) translateY(-3px); }
+  }
+
+  .waiting-cat-snore {
+    display: inline-block;
+    color: var(--muted);
+    animation: cat-snore 2.4s ease-in-out infinite;
+  }
+
+  @keyframes cat-snore {
+    0%, 100% { opacity: 0.3; transform: translateY(2px); }
+    50% { opacity: 1; transform: translateY(-2px); }
+  }
+
+  @keyframes cat-breathe {
+    50% { transform: translateY(-2px); }
+  }
+
+  @keyframes cat-blink {
+    0%, 92%, 100% { transform: scaleY(1); }
+    96% { transform: scaleY(0.1); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .waiting-cat-art,
+    .waiting-cat-eyes,
+    .waiting-cat-snore,
+    .waiting-cat-puzzled {
+      animation: none;
+    }
   }
 
   #details {
@@ -197,6 +410,41 @@
   :root[data-brackets="on"] .header-value { color: var(--header-value); }
   :root[data-brackets="on"] .http-method { color: var(--http-method); font-weight: 600; }
 
+  /* Vivid palette: overrides syntax/status colors for both themes. */
+  :root[data-palette="vivid"] {
+    --accent: #e0218a;
+    --bracket-0: #8a6a00;
+    --bracket-1: #c43e00;
+    --bracket-2: #00838f;
+    --json-key: #c2006d;
+    --json-string: #1b8a2e;
+    --json-number: #6a3df0;
+    --json-literal: #1a5fd8;
+    --status-success: #1b8a2e;
+    --status-redirect: #0b72e7;
+    --status-client-error: #c25400;
+    --status-server-error: #e0115f;
+    --header-name: #c2006d;
+    --http-method: #7a3cff;
+  }
+
+  :root[data-palette="vivid"][data-theme="dark"] {
+    --accent: #ff5fb4;
+    --bracket-0: #ffd700;
+    --bracket-1: #ff7b1c;
+    --bracket-2: #40e0d0;
+    --json-key: #ff79c6;
+    --json-string: #7dff8a;
+    --json-number: #bd93f9;
+    --json-literal: #6fa8ff;
+    --status-success: #7dff8a;
+    --status-redirect: #5cc8ff;
+    --status-client-error: #ffb86c;
+    --status-server-error: #ff5c8a;
+    --header-name: #ff79c6;
+    --http-method: #5cc8ff;
+  }
+
   .param-badge {
     display: inline-block;
     padding: 0 5px;
@@ -232,6 +480,23 @@
     content: "▸";
   }
 
+  .json-children {
+    display: block;
+  }
+
+  .json-children[hidden] {
+    display: none;
+  }
+
+  /* Hanging indent: the leading two spaces sit in the -2ch text-indent,
+     so wrapped lines align with the start of the key/value. Nests
+     naturally because padding is relative to the parent entry. */
+  .json-entry {
+    display: block;
+    padding-left: 2ch;
+    text-indent: -2ch;
+  }
+
   .json-summary {
     color: var(--muted);
   }
@@ -242,18 +507,30 @@
   }
 </style>
 
+<div id="sticky-bar">
 <div id="header">
   <h2>Requests</h2>
   <div id="header-actions">
     <button id="bracket-toggle" type="button" aria-pressed="true">Colors: on</button>
+    <button id="palette-toggle" type="button" aria-pressed="false">Palette: classic</button>
     <button id="theme-toggle" type="button">Theme</button>
   </div>
 </div>
 <div id="toolbar">
   <input id="filter" type="search" placeholder="Filter by URL" aria-label="Filter by URL">
+  <div class="multi-filter" id="method-filter">
+    <button class="multi-filter-button" type="button" aria-haspopup="true" aria-expanded="false">Method</button>
+    <div class="multi-filter-menu" hidden></div>
+  </div>
+  <div class="multi-filter" id="status-filter">
+    <button class="multi-filter-button" type="button" aria-haspopup="true" aria-expanded="false">Status</button>
+    <div class="multi-filter-menu" hidden></div>
+  </div>
+  <button id="expand-list" type="button" aria-pressed="false">Expand list</button>
   <button id="clear">Clear</button>
 </div>
-<div id="requests">Waiting for requests…</div>
+</div>
+<div id="requests-frame"><div id="requests">Waiting for requests…</div></div>
 <section id="details" aria-live="polite">Select a request to see its details.</section>
 
 <script src="no-network.js"></script>

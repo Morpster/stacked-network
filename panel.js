@@ -148,7 +148,8 @@ function renderRequestList() {
       createMethodSpan(request.request.method),
       "  ",
       createStatusSpan(request.response.status),
-      `  ${base}`
+      "  ",
+      ...highlightMatches(base, filter)
     );
     if (params.length > 0) {
       const badge = document.createElement("span");
@@ -176,6 +177,28 @@ function renderRequestList() {
 
     requestsElement.append(button);
   }
+}
+
+// Splits `text` into plain strings and <mark> elements for every
+// case-insensitive occurrence of `filter` (already lowercased).
+function highlightMatches(text, filter) {
+  if (!filter) return [text];
+  const lower = text.toLowerCase();
+  // Lowercasing can change length for some characters; skip highlighting
+  // rather than risk marking the wrong span.
+  if (lower.length !== text.length) return [text];
+
+  const parts = [];
+  let last = 0;
+  for (let i = lower.indexOf(filter); i !== -1; i = lower.indexOf(filter, last)) {
+    if (i > last) parts.push(text.slice(last, i));
+    const mark = document.createElement("mark");
+    mark.textContent = text.slice(i, i + filter.length);
+    parts.push(mark);
+    last = i + filter.length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return parts;
 }
 
 // Splits a URL into everything but the query string, plus decoded params.

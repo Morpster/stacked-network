@@ -250,9 +250,11 @@ function renderRequestList() {
   );
 
   if (visible.length === 0) {
-    requestsElement.textContent = requests.length === 0
-      ? "No finished requests yet. Reload the page to capture some."
-      : "No requests match the filter.";
+    if (requests.length === 0) {
+      requestsElement.replaceChildren(createWaitingCat());
+    } else {
+      requestsElement.textContent = "No requests match the filter.";
+    }
     return;
   }
 
@@ -695,3 +697,31 @@ function renderDetails(request) {
 
   detailsElement.append(bodyButton);
 }
+
+// Empty state: a small ASCII cat patiently waiting for traffic. The tail
+// and eyes are separate spans so CSS can animate them.
+function createWaitingCat() {
+  const wrapper = document.createElement("span");
+  wrapper.className = "waiting-cat";
+
+  const art = document.createElement("pre");
+  art.className = "waiting-cat-art";
+  art.setAttribute("aria-hidden", "true");
+  const eyes = createSpan("waiting-cat-eyes", "o.o");
+  const tail = createSpan("waiting-cat-tail", "~");
+  art.append(
+    " /\\_/\\\n",
+    "( ", eyes, " )\n",
+    " > ^ <\n",
+    "(_) (_)", tail
+  );
+
+  const message = createSpan(
+    "waiting-cat-message",
+    "Waiting for requests… reload the page to capture some."
+  );
+  wrapper.append(art, message);
+  return wrapper;
+}
+
+renderRequests();

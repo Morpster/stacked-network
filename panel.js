@@ -102,17 +102,19 @@ function renderRequests() {
 }
 
 // Splits a URL into everything but the query string, plus decoded params.
+// Only a "?" before the fragment starts a query; with no params, the URL is
+// returned unchanged.
 function splitUrl(url) {
+  const hashStart = url.indexOf("#");
   const queryStart = url.indexOf("?");
-  if (queryStart === -1) return { base: url, params: [] };
+  if (queryStart === -1 || (hashStart !== -1 && hashStart < queryStart)) {
+    return { base: url, params: [] };
+  }
 
-  const hashStart = url.indexOf("#", queryStart);
-  const query = url.slice(queryStart + 1, hashStart === -1 ? undefined : hashStart);
-  const hash = hashStart === -1 ? "" : url.slice(hashStart);
-  return {
-    base: url.slice(0, queryStart) + hash,
-    params: [...new URLSearchParams(query)],
-  };
+  const queryEnd = hashStart === -1 ? url.length : hashStart;
+  const params = [...new URLSearchParams(url.slice(queryStart + 1, queryEnd))];
+  if (params.length === 0) return { base: url, params };
+  return { base: url.slice(0, queryStart) + url.slice(queryEnd), params };
 }
 
 function addRequestSection(request) {

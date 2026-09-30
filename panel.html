@@ -197,6 +197,41 @@
   :root[data-brackets="on"] .header-value { color: var(--header-value); }
   :root[data-brackets="on"] .http-method { color: var(--http-method); font-weight: 600; }
 
+  /* Vivid palette: overrides syntax/status colors for both themes. */
+  :root[data-palette="vivid"] {
+    --accent: #e0218a;
+    --bracket-0: #a87200;
+    --bracket-1: #d35400;
+    --bracket-2: #00838f;
+    --json-key: #c2006d;
+    --json-string: #1b8a2e;
+    --json-number: #6a3df0;
+    --json-literal: #1a5fd8;
+    --status-success: #1b8a2e;
+    --status-redirect: #0b72e7;
+    --status-client-error: #c25400;
+    --status-server-error: #e0115f;
+    --header-name: #c2006d;
+    --http-method: #7a3cff;
+  }
+
+  :root[data-palette="vivid"][data-theme="dark"] {
+    --accent: #ff5fb4;
+    --bracket-0: #ffe066;
+    --bracket-1: #ff9e4a;
+    --bracket-2: #40e0d0;
+    --json-key: #ff79c6;
+    --json-string: #7dff8a;
+    --json-number: #bd93f9;
+    --json-literal: #6fa8ff;
+    --status-success: #7dff8a;
+    --status-redirect: #5cc8ff;
+    --status-client-error: #ffb86c;
+    --status-server-error: #ff5c8a;
+    --header-name: #ff79c6;
+    --http-method: #5cc8ff;
+  }
+
   .param-badge {
     display: inline-block;
     padding: 0 5px;
@@ -232,6 +267,23 @@
     content: "▸";
   }
 
+  .json-children {
+    display: block;
+  }
+
+  .json-children[hidden] {
+    display: none;
+  }
+
+  /* Hanging indent: the leading two spaces sit in the -2ch text-indent,
+     so wrapped lines align with the start of the key/value. Nests
+     naturally because padding is relative to the parent entry. */
+  .json-entry {
+    display: block;
+    padding-left: 2ch;
+    text-indent: -2ch;
+  }
+
   .json-summary {
     color: var(--muted);
   }
@@ -246,6 +298,7 @@
   <h2>Requests</h2>
   <div id="header-actions">
     <button id="bracket-toggle" type="button" aria-pressed="true">Colors: on</button>
+    <button id="palette-toggle" type="button" aria-pressed="false">Palette: classic</button>
     <button id="theme-toggle" type="button">Theme</button>
   </div>
 </div>

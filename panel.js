@@ -22,6 +22,24 @@ themeToggle.addEventListener("click", () => {
   applyTheme(theme);
 });
 
+const paletteToggle = document.querySelector("#palette-toggle");
+const PALETTE_KEY = "stacked-network-palette";
+
+function applyPalette(palette) {
+  document.documentElement.dataset.palette = palette;
+  paletteToggle.setAttribute("aria-pressed", String(palette === "vivid"));
+  paletteToggle.textContent = `Palette: ${palette}`;
+}
+
+applyPalette(localStorage.getItem(PALETTE_KEY) === "vivid" ? "vivid" : "classic");
+
+paletteToggle.addEventListener("click", () => {
+  const palette =
+    document.documentElement.dataset.palette === "vivid" ? "classic" : "vivid";
+  localStorage.setItem(PALETTE_KEY, palette);
+  applyPalette(palette);
+});
+
 const bracketToggle = document.querySelector("#bracket-toggle");
 const BRACKETS_KEY = "stacked-network-bracket-colors";
 
@@ -314,15 +332,16 @@ function buildJsonNode(value, depth) {
     return node;
   }
 
+  // Each entry is its own block with a hanging indent (see .json-entry CSS),
+  // so wrapped long values line up with where the entry's text starts.
   const children = createSpan("json-children", "");
-  const indent = INDENT.repeat(depth + 1);
   entries.forEach(([key, item], index) => {
-    children.append(`\n${indent}`);
-    if (key !== null) children.append(createSpan("json-key", JSON.stringify(key)), ": ");
-    children.append(buildJsonNode(item, depth + 1));
-    if (index < entries.length - 1) children.append(",");
+    const entry = createSpan("json-entry", INDENT);
+    if (key !== null) entry.append(createSpan("json-key", JSON.stringify(key)), ": ");
+    entry.append(buildJsonNode(item, depth + 1));
+    if (index < entries.length - 1) entry.append(",");
+    children.append(entry);
   });
-  children.append(`\n${INDENT.repeat(depth)}`);
 
   const count = entries.length;
   const noun = isArray ? (count === 1 ? "item" : "items") : (count === 1 ? "key" : "keys");

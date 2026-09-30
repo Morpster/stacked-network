@@ -98,9 +98,30 @@ function createMultiFilter(root, { label, noun, getValue, compare, renderValue }
     );
   }
 
+  // Last rendered option list, so refreshes can skip rebuilding (and
+  // stealing keyboard focus) when nothing actually changed.
+  let renderedKey = null;
+  let reset = null;
+
+  function updateReset() {
+    if (reset) reset.disabled = selected.size === 0;
+  }
+
   function renderMenu() {
     const values = [...new Set([...requests.map(getValue), ...selected])].sort(compare);
+    const key = values.join("\n");
+    if (key === renderedKey) {
+      updateReset();
+      return;
+    }
+    renderedKey = key;
+
+    // Remember which item had focus so it can be restored after rebuilding.
+    const focused = menu.contains(document.activeElement)
+      ? document.activeElement.dataset.key
+      : undefined;
     menu.replaceChildren();
+    reset = null;
 
     if (values.length === 0) {
       const empty = document.createElement("span");
@@ -114,6 +135,7 @@ function createMultiFilter(root, { label, noun, getValue, compare, renderValue }
       const option = document.createElement("button");
       option.type = "button";
       option.className = "multi-filter-option";
+      option.dataset.key = String(value);
       option.setAttribute("aria-pressed", String(selected.has(value)));
       const check = document.createElement("span");
       check.className = "multi-filter-check";
@@ -122,24 +144,39 @@ function createMultiFilter(root, { label, noun, getValue, compare, renderValue }
         if (selected.has(value)) selected.delete(value);
         else selected.add(value);
         option.setAttribute("aria-pressed", String(selected.has(value)));
+        updateReset();
         renderTrigger();
         renderRequests();
       });
       menu.append(option);
     }
 
-    const reset = document.createElement("button");
+    reset = document.createElement("button");
     reset.type = "button";
     reset.className = "multi-filter-reset";
+    reset.dataset.key = "reset";
     reset.textContent = "Show all";
-    reset.disabled = selected.size === 0;
     reset.addEventListener("click", () => {
       selected.clear();
+      for (const option of menu.querySelectorAll(".multi-filter-option")) {
+        option.setAttribute("aria-pressed", "false");
+      }
+      updateReset();
       renderTrigger();
-      renderMenu();
       renderRequests();
+      // Drops options that only existed because they were selected.
+      renderMenu();
+      // Keep focus inside the menu now that this button is disabled.
+      menu.querySelector(".multi-filter-option")?.focus();
     });
+    updateReset();
     menu.append(reset);
+
+    if (focused !== undefined) {
+      for (const item of menu.querySelectorAll("button")) {
+        if (item.dataset.key === focused) item.focus();
+      }
+    }
   }
 
   function setExpanded(expanded) {
@@ -228,6 +265,9 @@ function clearAll() {
   filterElement.value = "";
   detailsElement.textContent = "Select a request to see its details.";
   renderRequests();
+  // Visible dropdowns would otherwise keep listing the cleared values.
+  methodFilter.refresh();
+  statusFilter.refresh();
 }
 
 function renderRequests() {

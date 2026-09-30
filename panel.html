@@ -90,8 +90,7 @@
     padding-top: 12px;
   }
 
-  .auth-headers summary,
-  .query-params summary {
+  .auth-headers summary {
     cursor: pointer;
     color: var(--muted);
   }
@@ -101,12 +100,26 @@
     gap: 8px;
   }
 
-  .body-section > summary {
+  .section-fold,
+  .section-fold:hover:not(:disabled) {
+    border: 0;
+    background: none;
+    padding: 0;
+    font: inherit;
     cursor: pointer;
   }
 
-  .body-section > summary > h3 {
-    display: inline;
+  .section-fold::before {
+    content: "▾ ";
+  }
+
+  .section-fold[aria-expanded="false"]::before {
+    content: "▸ ";
+  }
+
+  .section-fold.query-params {
+    display: block;
+    color: var(--muted);
   }
 
   :root {

@@ -133,11 +133,6 @@ function addRequestSection(request) {
     return;
   }
 
-  const paramsDetails = document.createElement("details");
-  paramsDetails.className = "query-params";
-  paramsDetails.open = true;
-  const summary = document.createElement("summary");
-  summary.textContent = `Query parameters (${params.length})`;
   const paramsPre = document.createElement("pre");
   params.forEach(([name, value], index) => {
     const nameSpan = document.createElement("span");
@@ -149,7 +144,8 @@ function addRequestSection(request) {
     if (index > 0) paramsPre.append("\n");
     paramsPre.append(nameSpan, " = ", valueSpan);
   });
-  paramsDetails.append(summary, paramsPre);
+  const paramsFold = createSectionFold(`Query parameters (${params.length})`, [paramsPre]);
+  paramsFold.classList.add("query-params");
 
   let showingRaw = false;
   const toggle = document.createElement("button");
@@ -159,11 +155,28 @@ function addRequestSection(request) {
     showingRaw = !showingRaw;
     if (showingRaw) showRaw();
     else showParsed();
-    paramsDetails.hidden = showingRaw;
+    paramsFold.hidden = showingRaw;
+    paramsPre.hidden = showingRaw || paramsFold.getAttribute("aria-expanded") === "false";
     toggle.textContent = showingRaw ? "Show parsed" : "Show raw";
   });
 
-  detailsElement.append(toggle, pre, paramsDetails);
+  detailsElement.append(toggle, pre, paramsFold, paramsPre);
+}
+
+// A button that shows/hides `targets`. Used instead of <details> so sections
+// can start expanded.
+function createSectionFold(label, targets) {
+  const fold = document.createElement("button");
+  fold.type = "button";
+  fold.className = "section-fold";
+  fold.textContent = label;
+  fold.setAttribute("aria-expanded", "true");
+  fold.addEventListener("click", () => {
+    const expand = fold.getAttribute("aria-expanded") === "false";
+    fold.setAttribute("aria-expanded", String(expand));
+    for (const target of targets) target.hidden = !expand;
+  });
+  return fold;
 }
 
 // Status 0 (blocked/aborted) and anything unexpected count as errors.
@@ -277,14 +290,14 @@ function buildJsonNode(value, depth) {
   const entries = isArray
     ? value.map(item => [null, item])
     : Object.entries(value);
-  const [open, close] = isArray ? ["[", "]"] : ["{", "}"];
+  const [openBracket, closeBracket] = isArray ? "[]" : "{}";
   const bracketClass = `bracket bracket-${depth % BRACKET_COLORS}`;
 
   const node = document.createElement("span");
   node.className = "json-node";
 
   if (entries.length === 0) {
-    node.append(createSpan(bracketClass, open + close));
+    node.append(createSpan(bracketClass, openBracket + closeBracket));
     return node;
   }
 
@@ -319,7 +332,7 @@ function buildJsonNode(value, depth) {
     );
   });
 
-  node.append(fold, createSpan(bracketClass, open), children, summary, createSpan(bracketClass, close));
+  node.append(fold, createSpan(bracketClass, openBracket), children, summary, createSpan(bracketClass, closeBracket));
   return node;
 }
 
@@ -357,7 +370,7 @@ function renderColorized(pre, text) {
     } else if (nullValue !== undefined) {
       addSpan("json-null", token);
     } else if (bracket !== undefined) {
-      const opening = bracket === "{" || bracket === "[";
+      const opening = "[{".includes(bracket);
       if (!opening) depth = Math.max(0, depth - 1);
       addSpan(`bracket bracket-${depth % BRACKET_COLORS}`, bracket);
       if (opening) depth++;
@@ -378,23 +391,10 @@ function addBodySection(title, content, mimeType, { collapsible = false } = {}) 
   };
   show(true);
 
-  let container = detailsElement;
-  if (collapsible) {
-    container = document.createElement("details");
-    container.className = "body-section";
-    container.open = true;
-    const summary = document.createElement("summary");
-    const heading = document.createElement("h3");
-    heading.textContent = title;
-    summary.append(heading);
-    container.append(summary);
-    detailsElement.append(container);
-  } else {
-    const heading = document.createElement("h3");
-    heading.textContent = title;
-    detailsElement.append(heading);
-  }
+  const heading = document.createElement("h3");
+  detailsElement.append(heading);
 
+  const parts = [pre];
   if (json !== null) {
     let showingPretty = true;
     const toggle = document.createElement("button");
@@ -405,10 +405,16 @@ function addBodySection(title, content, mimeType, { collapsible = false } = {}) 
       show(showingPretty);
       toggle.textContent = showingPretty ? "Show raw" : "Show pretty";
     });
-    container.append(toggle);
+    parts.unshift(toggle);
   }
 
-  container.append(pre);
+  if (collapsible) {
+    heading.append(createSectionFold(title, parts));
+  } else {
+    heading.textContent = title;
+  }
+
+  detailsElement.append(...parts);
 }
 
 function renderDetails(request) {

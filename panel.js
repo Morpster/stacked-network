@@ -255,6 +255,16 @@ function addRequestHeadersSection(headers = []) {
   detailsElement.append(details);
 }
 
+// Numbers are kept as their original source text so the pretty view shows
+// exactly what was sent: no Infinity for 1e400, no precision loss for big
+// integer IDs. Falls back to JSON.stringify if source text isn't available.
+const NUMBER_SOURCE = Symbol("number-source");
+
+function keepNumberSource(key, value, context) {
+  if (typeof value !== "number") return value;
+  return { [NUMBER_SOURCE]: context?.source ?? JSON.stringify(value) };
+}
+
 // Returns `{ value }` for JSON bodies, or null when the body isn't JSON.
 function parseJsonBody(content, mimeType = "") {
   const text = content ?? "";
@@ -263,7 +273,7 @@ function parseJsonBody(content, mimeType = "") {
   if (!looksJson) return null;
 
   try {
-    return { value: JSON.parse(text) };
+    return { value: JSON.parse(text, keepNumberSource) };
   } catch {
     return null;
   }
@@ -285,7 +295,8 @@ function createSpan(className, text) {
 function buildJsonNode(value, depth) {
   if (value === null) return createSpan("json-null", "null");
   if (typeof value === "string") return createSpan("json-string", JSON.stringify(value));
-  if (typeof value === "number") return createSpan("json-number", String(value));
+  if (typeof value === "number") return createSpan("json-number", JSON.stringify(value));
+  if (value[NUMBER_SOURCE] !== undefined) return createSpan("json-number", value[NUMBER_SOURCE]);
   if (typeof value === "boolean") return createSpan("json-boolean", String(value));
 
   const isArray = Array.isArray(value);

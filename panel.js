@@ -79,7 +79,7 @@ function setListExpanded(expanded) {
   updateScrollHints();
 }
 
-// Shows the top/bottom fades (see #requests-frame CSS) only when the list
+// Shows the edge fades (see #requests-frame CSS) only when the list
 // actually has hidden content in that direction.
 const requestsFrame = document.querySelector("#requests-frame");
 
@@ -91,6 +91,16 @@ function updateScrollHints() {
 
 requestsElement.addEventListener("scroll", updateScrollHints, { passive: true });
 new ResizeObserver(updateScrollHints).observe(requestsElement);
+
+// Up/Down arrows move the selection to the previous/next request.
+requestsElement.addEventListener("keydown", event => {
+  if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+  const buttons = [...requestsElement.querySelectorAll(".request")];
+  const index = buttons.indexOf(document.activeElement);
+  if (index === -1) return;
+  event.preventDefault();
+  buttons[index + (event.key === "ArrowDown" ? 1 : -1)]?.click();
+});
 
 setListExpanded(false);
 expandButton.addEventListener("click", () => {
@@ -153,9 +163,15 @@ function renderRequestList() {
       setListExpanded(false);
       renderRequests();
       renderDetails(request);
-      requestsElement
-        .querySelector('.request[aria-current="true"]')
-        ?.scrollIntoView({ block: "nearest" });
+      // The list is rebuilt on render, so refocus the new button to keep
+      // arrow-key navigation going.
+      const current = requestsElement.querySelector('.request[aria-current="true"]');
+      current?.focus({ preventScroll: true });
+      current?.scrollIntoView({ block: "nearest" });
+      // scrollIntoView ignores the list's padding, so snap fully to the
+      // ends for the first/last request; otherwise the scroll hints stay on.
+      if (current && !current.previousElementSibling) requestsElement.scrollTop = 0;
+      if (current && !current.nextElementSibling) requestsElement.scrollTop = requestsElement.scrollHeight;
     });
 
     requestsElement.append(button);

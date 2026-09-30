@@ -22,6 +22,23 @@ themeToggle.addEventListener("click", () => {
   applyTheme(theme);
 });
 
+const bracketToggle = document.querySelector("#bracket-toggle");
+const BRACKETS_KEY = "stacked-network-bracket-colors";
+
+function applyBracketColors(enabled) {
+  document.documentElement.dataset.brackets = enabled ? "on" : "off";
+  bracketToggle.setAttribute("aria-pressed", String(enabled));
+  bracketToggle.textContent = enabled ? "Colors: on" : "Colors: off";
+}
+
+applyBracketColors(localStorage.getItem(BRACKETS_KEY) !== "off");
+
+bracketToggle.addEventListener("click", () => {
+  const enabled = document.documentElement.dataset.brackets !== "on";
+  localStorage.setItem(BRACKETS_KEY, enabled ? "on" : "off");
+  applyBracketColors(enabled);
+});
+
 const requests = [];
 let selectedRequest = null;
 
@@ -59,8 +76,12 @@ function renderRequests() {
     const button = document.createElement("button");
     button.className = "request";
     button.setAttribute("aria-current", String(request === selectedRequest));
-    button.textContent =
-      `${request.request.method}  ${request.response.status}  ${request.request.url}`;
+    button.append(
+      createMethodSpan(request.request.method),
+      "  ",
+      createStatusSpan(request.response.status),
+      `  ${request.request.url}`
+    );
 
     button.addEventListener("click", () => {
       selectedRequest = request;
@@ -72,18 +93,55 @@ function renderRequests() {
   }
 }
 
+// Status 0 (blocked/aborted) and anything unexpected count as errors.
+function statusClass(status) {
+  if (status >= 100 && status < 200) return "status-info";
+  if (status >= 200 && status < 300) return "status-success";
+  if (status >= 300 && status < 400) return "status-redirect";
+  if (status >= 400 && status < 500) return "status-client-error";
+  return "status-server-error";
+}
+
+function createStatusSpan(status, text = String(status)) {
+  const span = document.createElement("span");
+  span.className = `status ${statusClass(status)}`;
+  span.textContent = text;
+  return span;
+}
+
+// `value` is either plain text or an array of nodes/strings.
 function addSection(title, value) {
   const heading = document.createElement("h3");
   heading.textContent = title;
 
   const pre = document.createElement("pre");
-  pre.textContent = value || "(empty)";
+  if (Array.isArray(value) && value.length > 0) pre.append(...value);
+  else pre.textContent = (!Array.isArray(value) && value) || "(empty)";
 
   detailsElement.append(heading, pre);
 }
 
+function createMethodSpan(method) {
+  const span = document.createElement("span");
+  span.className = "http-method";
+  span.textContent = method;
+  return span;
+}
+
+// Returns header lines as nodes with separately colorable names and values.
 function formatHeaders(headers = []) {
-  return headers.map(({ name, value }) => `${name}: ${value}`).join("\n");
+  const nodes = [];
+  headers.forEach(({ name, value }, index) => {
+    if (index > 0) nodes.push("\n");
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "header-name";
+    nameSpan.textContent = name;
+    const valueSpan = document.createElement("span");
+    valueSpan.className = "header-value";
+    valueSpan.textContent = value;
+    nodes.push(nameSpan, ": ", valueSpan);
+  });
+  return nodes;
 }
 
 const AUTH_HEADER = /^(proxy-)?authorization$/i;
@@ -103,61 +161,193 @@ function addRequestHeadersSection(headers = []) {
   summary.textContent = `Authorization (${authHeaders.length})`;
 
   const pre = document.createElement("pre");
-  pre.textContent = formatHeaders(authHeaders);
+  pre.append(...formatHeaders(authHeaders));
 
   details.append(summary, pre);
   detailsElement.append(details);
 }
 
-function prettifyBody(content, mimeType = "") {
+// Returns `{ value }` for JSON bodies, or null when the body isn't JSON.
+function parseJsonBody(content, mimeType = "") {
   const text = content ?? "";
   const looksJson =
     /json/i.test(mimeType) || /^\s*[\[{]/.test(text);
   if (!looksJson) return null;
 
   try {
-    return JSON.stringify(JSON.parse(text), null, 2);
+    return { value: JSON.parse(text) };
   } catch {
     return null;
   }
 }
 
-function addBodySection(title, content, mimeType) {
-  const raw = content || "";
-  const pretty = prettifyBody(raw, mimeType);
+const BRACKET_COLORS = 3;
+const INDENT = "  ";
 
-  const heading = document.createElement("h3");
-  heading.textContent = title;
+function createSpan(className, text) {
+  const span = document.createElement("span");
+  span.className = className;
+  span.textContent = text;
+  return span;
+}
+
+// Builds a pretty-printed, colorized JSON tree where every non-empty object
+// and array can be folded. Fold markers are drawn with CSS so copied text
+// stays clean JSON.
+function buildJsonNode(value, depth) {
+  if (value === null) return createSpan("json-null", "null");
+  if (typeof value === "string") return createSpan("json-string", JSON.stringify(value));
+  if (typeof value === "number") return createSpan("json-number", String(value));
+  if (typeof value === "boolean") return createSpan("json-boolean", String(value));
+
+  const isArray = Array.isArray(value);
+  const entries = isArray
+    ? value.map(item => [null, item])
+    : Object.entries(value);
+  const [open, close] = isArray ? ["[", "]"] : ["{", "}"];
+  const bracketClass = `bracket bracket-${depth % BRACKET_COLORS}`;
+
+  const node = document.createElement("span");
+  node.className = "json-node";
+
+  if (entries.length === 0) {
+    node.append(createSpan(bracketClass, open + close));
+    return node;
+  }
+
+  const children = createSpan("json-children", "");
+  const indent = INDENT.repeat(depth + 1);
+  entries.forEach(([key, item], index) => {
+    children.append(`\n${indent}`);
+    if (key !== null) children.append(createSpan("json-key", JSON.stringify(key)), ": ");
+    children.append(buildJsonNode(item, depth + 1));
+    if (index < entries.length - 1) children.append(",");
+  });
+  children.append(`\n${INDENT.repeat(depth)}`);
+
+  const count = entries.length;
+  const noun = isArray ? (count === 1 ? "item" : "items") : (count === 1 ? "key" : "keys");
+  const summary = createSpan("json-summary", `…${count} ${noun}`);
+  summary.hidden = true;
+
+  const fold = document.createElement("button");
+  fold.type = "button";
+  fold.className = "json-fold";
+  fold.setAttribute("aria-expanded", "true");
+  fold.setAttribute("aria-label", `Collapse ${isArray ? "array" : "object"}`);
+  fold.addEventListener("click", () => {
+    const collapse = !children.hidden;
+    children.hidden = collapse;
+    summary.hidden = !collapse;
+    fold.setAttribute("aria-expanded", String(!collapse));
+    fold.setAttribute(
+      "aria-label",
+      `${collapse ? "Expand" : "Collapse"} ${isArray ? "array" : "object"}`
+    );
+  });
+
+  node.append(fold, createSpan(bracketClass, open), children, summary, createSpan(bracketClass, close));
+  return node;
+}
+
+// Matches one JSON token at a time: string, number, literal, or bracket.
+const JSON_TOKEN =
+  /("(?:\\.|[^"\\])*")|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|\b(true|false)\b|\b(null)\b|([{}[\]])/g;
+
+// Renders JSON text into `pre`, wrapping keys, values, and depth-tagged
+// brackets in spans. Colors come from CSS and only apply when colors are
+// enabled, so toggling needs no re-render.
+function renderColorized(pre, text) {
+  pre.replaceChildren();
+  let depth = 0;
+  let last = 0;
+
+  const addSpan = (className, value) => {
+    const span = document.createElement("span");
+    span.className = className;
+    span.textContent = value;
+    pre.append(span);
+  };
+
+  for (const match of text.matchAll(JSON_TOKEN)) {
+    const [token, string, number, boolean, nullValue, bracket] = match;
+    if (match.index > last) pre.append(text.slice(last, match.index));
+    last = match.index + token.length;
+
+    if (string !== undefined) {
+      const isKey = /^\s*:/.test(text.slice(last));
+      addSpan(isKey ? "json-key" : "json-string", token);
+    } else if (number !== undefined) {
+      addSpan("json-number", token);
+    } else if (boolean !== undefined) {
+      addSpan("json-boolean", token);
+    } else if (nullValue !== undefined) {
+      addSpan("json-null", token);
+    } else if (bracket !== undefined) {
+      const opening = bracket === "{" || bracket === "[";
+      if (!opening) depth = Math.max(0, depth - 1);
+      addSpan(`bracket bracket-${depth % BRACKET_COLORS}`, bracket);
+      if (opening) depth++;
+    }
+  }
+  if (text.length > last) pre.append(text.slice(last));
+}
+
+function addBodySection(title, content, mimeType, { collapsible = false } = {}) {
+  const raw = content || "";
+  const json = parseJsonBody(raw, mimeType);
 
   const pre = document.createElement("pre");
-  pre.textContent = (pretty ?? raw) || "(empty)";
+  const show = prettyView => {
+    if (json === null) pre.textContent = raw || "(empty)";
+    else if (prettyView) pre.replaceChildren(buildJsonNode(json.value, 0));
+    else renderColorized(pre, raw);
+  };
+  show(true);
 
-  detailsElement.append(heading);
+  let container = detailsElement;
+  if (collapsible) {
+    container = document.createElement("details");
+    container.className = "body-section";
+    container.open = true;
+    const summary = document.createElement("summary");
+    const heading = document.createElement("h3");
+    heading.textContent = title;
+    summary.append(heading);
+    container.append(summary);
+    detailsElement.append(container);
+  } else {
+    const heading = document.createElement("h3");
+    heading.textContent = title;
+    detailsElement.append(heading);
+  }
 
-  if (pretty !== null) {
+  if (json !== null) {
     let showingPretty = true;
     const toggle = document.createElement("button");
     toggle.type = "button";
     toggle.textContent = "Show raw";
     toggle.addEventListener("click", () => {
       showingPretty = !showingPretty;
-      pre.textContent = showingPretty ? pretty : raw;
+      show(showingPretty);
       toggle.textContent = showingPretty ? "Show raw" : "Show pretty";
     });
-    detailsElement.append(toggle);
+    container.append(toggle);
   }
 
-  detailsElement.append(pre);
+  container.append(pre);
 }
 
 function renderDetails(request) {
   detailsElement.replaceChildren();
 
-  addSection("Request", `${request.request.method} ${request.request.url}`);
-  addSection(
-    "Status",
-    `${request.response.status} ${request.response.statusText || ""}`
-  );
+  addSection("Request", [createMethodSpan(request.request.method), ` ${request.request.url}`]);
+  const statusHeading = document.createElement("h3");
+  statusHeading.textContent = "Status";
+  const statusPre = document.createElement("pre");
+  const { status, statusText } = request.response;
+  statusPre.append(createStatusSpan(status, `${status} ${statusText || ""}`.trim()));
+  detailsElement.append(statusHeading, statusPre);
   addRequestHeadersSection(request.request.headers);
   addSection("Response headers", formatHeaders(request.response.headers));
 
@@ -165,7 +355,8 @@ function renderDetails(request) {
     addBodySection(
       "Request body",
       request.request.postData.text,
-      request.request.postData.mimeType
+      request.request.postData.mimeType,
+      { collapsible: true }
     );
   }
 

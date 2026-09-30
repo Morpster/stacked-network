@@ -76,12 +76,20 @@ function renderRequests() {
     const button = document.createElement("button");
     button.className = "request";
     button.setAttribute("aria-current", String(request === selectedRequest));
+    const { base, params } = splitUrl(request.request.url);
     button.append(
       createMethodSpan(request.request.method),
       "  ",
       createStatusSpan(request.response.status),
-      `  ${request.request.url}`
+      `  ${base}`
     );
+    if (params.length > 0) {
+      const badge = document.createElement("span");
+      badge.className = "param-badge";
+      badge.textContent = `?${params.length}`;
+      badge.title = `${params.length} query parameter${params.length === 1 ? "" : "s"}`;
+      button.append(" ", badge);
+    }
 
     button.addEventListener("click", () => {
       selectedRequest = request;
@@ -91,6 +99,71 @@ function renderRequests() {
 
     requestsElement.append(button);
   }
+}
+
+// Splits a URL into everything but the query string, plus decoded params.
+function splitUrl(url) {
+  const queryStart = url.indexOf("?");
+  if (queryStart === -1) return { base: url, params: [] };
+
+  const hashStart = url.indexOf("#", queryStart);
+  const query = url.slice(queryStart + 1, hashStart === -1 ? undefined : hashStart);
+  const hash = hashStart === -1 ? "" : url.slice(hashStart);
+  return {
+    base: url.slice(0, queryStart) + hash,
+    params: [...new URLSearchParams(query)],
+  };
+}
+
+function addRequestSection(request) {
+  const { method, url } = request.request;
+  const { base, params } = splitUrl(url);
+
+  const heading = document.createElement("h3");
+  heading.textContent = "Request";
+  const pre = document.createElement("pre");
+  detailsElement.append(heading);
+
+  const showParsed = () => pre.replaceChildren(createMethodSpan(method), ` ${base}`);
+  const showRaw = () => pre.replaceChildren(createMethodSpan(method), ` ${url}`);
+  showParsed();
+
+  if (params.length === 0) {
+    detailsElement.append(pre);
+    return;
+  }
+
+  const paramsDetails = document.createElement("details");
+  paramsDetails.className = "query-params";
+  paramsDetails.open = true;
+  const summary = document.createElement("summary");
+  summary.textContent = `Query parameters (${params.length})`;
+  const paramsPre = document.createElement("pre");
+  params.forEach(([name, value], index) => {
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "param-name";
+    nameSpan.textContent = name;
+    const valueSpan = document.createElement("span");
+    valueSpan.className = "param-value";
+    valueSpan.textContent = value;
+    if (index > 0) paramsPre.append("\n");
+    paramsPre.append(nameSpan, " = ", valueSpan);
+  });
+  paramsDetails.append(summary, paramsPre);
+
+  let showingRaw = false;
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.textContent = "Show raw";
+  toggle.addEventListener("click", () => {
+    showingRaw = !showingRaw;
+    if (showingRaw) showRaw();
+    else showParsed();
+    paramsDetails.hidden = showingRaw;
+    toggle.textContent = showingRaw ? "Show parsed" : "Show raw";
+  });
+
+  detailsElement.append(toggle, pre, paramsDetails);
 }
 
 // Status 0 (blocked/aborted) and anything unexpected count as errors.
@@ -341,7 +414,7 @@ function addBodySection(title, content, mimeType, { collapsible = false } = {}) 
 function renderDetails(request) {
   detailsElement.replaceChildren();
 
-  addSection("Request", [createMethodSpan(request.request.method), ` ${request.request.url}`]);
+  addRequestSection(request);
   const statusHeading = document.createElement("h3");
   statusHeading.textContent = "Status";
   const statusPre = document.createElement("pre");

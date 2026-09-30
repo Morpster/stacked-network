@@ -90,7 +90,8 @@
     padding-top: 12px;
   }
 
-  .auth-headers summary {
+  .auth-headers summary,
+  .query-params summary {
     cursor: pointer;
     color: var(--muted);
   }
@@ -182,6 +183,19 @@
   :root[data-brackets="on"] .header-name { color: var(--header-name); }
   :root[data-brackets="on"] .header-value { color: var(--header-value); }
   :root[data-brackets="on"] .http-method { color: var(--http-method); font-weight: 600; }
+
+  .param-badge {
+    display: inline-block;
+    padding: 0 5px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.85em;
+    color: var(--muted);
+  }
+
+  :root[data-brackets="on"] .param-badge { color: var(--accent); border-color: var(--accent); }
+  :root[data-brackets="on"] .param-name { color: var(--json-key); }
+  :root[data-brackets="on"] .param-value { color: var(--json-string); }
 
   .json-fold {
     border: 0;

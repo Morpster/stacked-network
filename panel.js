@@ -63,10 +63,125 @@ let selectedRequest = null;
 browser.devtools.network.onRequestFinished.addListener(request => {
   requests.push(request);
   renderRequests();
+  methodFilter.refresh();
+  statusFilter.refresh();
 });
 
 filterElement.addEventListener("input", renderRequests);
 clearButton.addEventListener("click", clearAll);
+
+// A compact multi-select dropdown. Nothing selected means "show all".
+// Options come from the captured requests, so only real values appear.
+function createMultiFilter(root, { label, noun, getValue, compare, renderValue }) {
+  const trigger = root.querySelector(".multi-filter-button");
+  const menu = root.querySelector(".multi-filter-menu");
+  const selected = new Set();
+
+  function renderTrigger() {
+    const values = [...selected].sort(compare);
+    trigger.replaceChildren();
+    if (values.length === 0) {
+      trigger.append(label);
+    } else {
+      trigger.append(renderValue(values[0]));
+      if (values.length > 1) {
+        const count = document.createElement("span");
+        count.className = "multi-filter-count";
+        count.textContent = `+${values.length - 1}`;
+        trigger.append(" ", count);
+      }
+    }
+    root.dataset.active = String(values.length > 0);
+    trigger.setAttribute(
+      "aria-label",
+      values.length === 0 ? `${label}: all` : `${label}: ${values.join(", ")}`
+    );
+  }
+
+  function renderMenu() {
+    const values = [...new Set([...requests.map(getValue), ...selected])].sort(compare);
+    menu.replaceChildren();
+
+    if (values.length === 0) {
+      const empty = document.createElement("span");
+      empty.className = "multi-filter-empty";
+      empty.textContent = `No ${noun} yet`;
+      menu.append(empty);
+      return;
+    }
+
+    for (const value of values) {
+      const option = document.createElement("button");
+      option.type = "button";
+      option.className = "multi-filter-option";
+      option.setAttribute("aria-pressed", String(selected.has(value)));
+      const check = document.createElement("span");
+      check.className = "multi-filter-check";
+      option.append(check, renderValue(value));
+      option.addEventListener("click", () => {
+        if (selected.has(value)) selected.delete(value);
+        else selected.add(value);
+        option.setAttribute("aria-pressed", String(selected.has(value)));
+        renderTrigger();
+        renderRequests();
+      });
+      menu.append(option);
+    }
+
+    const reset = document.createElement("button");
+    reset.type = "button";
+    reset.className = "multi-filter-reset";
+    reset.textContent = "Show all";
+    reset.disabled = selected.size === 0;
+    reset.addEventListener("click", () => {
+      selected.clear();
+      renderTrigger();
+      renderMenu();
+      renderRequests();
+    });
+    menu.append(reset);
+  }
+
+  function setExpanded(expanded) {
+    menu.hidden = !expanded;
+    trigger.setAttribute("aria-expanded", String(expanded));
+    if (expanded) renderMenu();
+  }
+
+  trigger.addEventListener("click", () => setExpanded(menu.hidden));
+  document.addEventListener("click", event => {
+    if (!root.contains(event.target)) setExpanded(false);
+  });
+  root.addEventListener("keydown", event => {
+    if (event.key === "Escape" && !menu.hidden) {
+      setExpanded(false);
+      trigger.focus();
+    }
+  });
+
+  renderTrigger();
+  return {
+    matches: value => selected.size === 0 || selected.has(value),
+    // Keep an open menu in sync as new requests arrive.
+    refresh: () => { if (!menu.hidden) renderMenu(); },
+  };
+}
+
+const methodFilter = createMultiFilter(document.querySelector("#method-filter"), {
+  label: "Method",
+  noun: "methods",
+  getValue: request => request.request.method,
+  compare: (a, b) => a.localeCompare(b),
+  renderValue: createMethodSpan,
+});
+
+const statusFilter = createMultiFilter(document.querySelector("#status-filter"), {
+  label: "Status",
+  noun: "statuses",
+  getValue: request => request.response.status,
+  compare: (a, b) => a - b,
+  renderValue: createStatusSpan,
+});
 
 // The list is capped at 40% of the viewport height and scrolls on its own;
 // "Expand list" lifts the cap so the page scrolls instead.
@@ -128,9 +243,11 @@ function renderRequestList() {
   requestsElement.replaceChildren();
 
   const filter = filterElement.value.trim().toLowerCase();
-  const visible = filter
-    ? requests.filter(r => r.request.url.toLowerCase().includes(filter))
-    : requests;
+  const visible = requests.filter(r =>
+    (!filter || r.request.url.toLowerCase().includes(filter)) &&
+    methodFilter.matches(r.request.method) &&
+    statusFilter.matches(r.response.status)
+  );
 
   if (visible.length === 0) {
     requestsElement.textContent = requests.length === 0
@@ -179,7 +296,7 @@ function renderRequestList() {
   }
 }
 
-// Splits `text` into plain strings and <mark> elements for every
+// Splits `text` into plain strings and highlighted spans for every
 // case-insensitive occurrence of `filter` (already lowercased).
 function highlightMatches(text, filter) {
   if (!filter) return [text];
@@ -192,7 +309,8 @@ function highlightMatches(text, filter) {
   let last = 0;
   for (let i = lower.indexOf(filter); i !== -1; i = lower.indexOf(filter, last)) {
     if (i > last) parts.push(text.slice(last, i));
-    const mark = document.createElement("mark");
+    const mark = document.createElement("span");
+    mark.className = "filter-match";
     mark.textContent = text.slice(i, i + filter.length);
     parts.push(mark);
     last = i + filter.length;

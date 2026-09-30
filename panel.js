@@ -201,6 +201,12 @@ function createMultiFilter(root, { label, noun, getValue, compare, renderValue }
     matches: value => selected.size === 0 || selected.has(value),
     // Keep a visible menu in sync as new requests arrive.
     refresh: () => { if (!menu.hidden) renderMenu(); },
+    // Drops all selections, e.g. when the captured requests are cleared.
+    clear: () => {
+      selected.clear();
+      renderTrigger();
+      if (!menu.hidden) renderMenu();
+    },
   };
 }
 
@@ -263,11 +269,11 @@ function clearAll() {
   requests.length = 0;
   selectedRequest = null;
   filterElement.value = "";
+  // Selections only make sense for captured values, so reset them too.
+  methodFilter.clear();
+  statusFilter.clear();
   detailsElement.textContent = "Select a request to see its details.";
   renderRequests();
-  // Visible dropdowns would otherwise keep listing the cleared values.
-  methodFilter.refresh();
-  statusFilter.refresh();
 }
 
 function renderRequests() {

@@ -68,6 +68,35 @@ browser.devtools.network.onRequestFinished.addListener(request => {
 filterElement.addEventListener("input", renderRequests);
 clearButton.addEventListener("click", clearAll);
 
+// The list is capped at 40% of the viewport height and scrolls on its own;
+// "Expand list" lifts the cap so the page scrolls instead.
+const expandButton = document.querySelector("#expand-list");
+
+function setListExpanded(expanded) {
+  requestsElement.dataset.expanded = String(expanded);
+  expandButton.setAttribute("aria-pressed", String(expanded));
+  expandButton.textContent = expanded ? "Collapse list" : "Expand list";
+  updateScrollHints();
+}
+
+// Shows the top/bottom fades (see #requests-frame CSS) only when the list
+// actually has hidden content in that direction.
+const requestsFrame = document.querySelector("#requests-frame");
+
+function updateScrollHints() {
+  const { scrollTop, scrollHeight, clientHeight } = requestsElement;
+  requestsFrame.dataset.moreAbove = String(scrollTop > 1);
+  requestsFrame.dataset.moreBelow = String(scrollHeight - scrollTop - clientHeight > 1);
+}
+
+requestsElement.addEventListener("scroll", updateScrollHints, { passive: true });
+new ResizeObserver(updateScrollHints).observe(requestsElement);
+
+setListExpanded(false);
+expandButton.addEventListener("click", () => {
+  setListExpanded(requestsElement.dataset.expanded !== "true");
+});
+
 function clearAll() {
   requests.length = 0;
   selectedRequest = null;
@@ -76,6 +105,16 @@ function clearAll() {
 }
 
 function renderRequests() {
+  // Stay pinned to the newest request if the user was already at the
+  // bottom; otherwise keep their scroll position while re-rendering.
+  const { scrollTop, scrollHeight, clientHeight } = requestsElement;
+  const wasAtBottom = scrollHeight - scrollTop - clientHeight < 8;
+  renderRequestList();
+  requestsElement.scrollTop = wasAtBottom ? requestsElement.scrollHeight : scrollTop;
+  updateScrollHints();
+}
+
+function renderRequestList() {
   requestsElement.replaceChildren();
 
   const filter = filterElement.value.trim().toLowerCase();
@@ -111,8 +150,12 @@ function renderRequests() {
 
     button.addEventListener("click", () => {
       selectedRequest = request;
+      setListExpanded(false);
       renderRequests();
       renderDetails(request);
+      requestsElement
+        .querySelector('.request[aria-current="true"]')
+        ?.scrollIntoView({ block: "nearest" });
     });
 
     requestsElement.append(button);

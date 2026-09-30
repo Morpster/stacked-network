@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Stacked Network",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "A single-column DevTools network request viewer",
   "devtools_page": "devtools.html",
   "content_security_policy": "default-src 'none'; script-src 'self'; object-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self'; connect-src 'none'; form-action 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'",

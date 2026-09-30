@@ -95,6 +95,147 @@
     color: var(--muted);
   }
 
+  #header-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .section-fold,
+  .section-fold:hover:not(:disabled) {
+    border: 0;
+    background: none;
+    padding: 0;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .section-fold::before {
+    content: "▾ ";
+  }
+
+  .section-fold[aria-expanded="false"]::before {
+    content: "▸ ";
+  }
+
+  .section-fold.query-params {
+    display: block;
+    color: var(--muted);
+  }
+
+  :root {
+    --bracket-0: #856404;
+    --bracket-1: #c71585;
+    --bracket-2: #0070c1;
+  }
+
+  :root[data-theme="dark"] {
+    --bracket-0: #ffd700;
+    --bracket-1: #da70d6;
+    --bracket-2: #179fff;
+  }
+
+  :root[data-brackets="on"] .bracket-0 { color: var(--bracket-0); }
+  :root[data-brackets="on"] .bracket-1 { color: var(--bracket-1); }
+  :root[data-brackets="on"] .bracket-2 { color: var(--bracket-2); }
+
+  :root {
+    --json-key: #0451a5;
+    --json-string: #a31515;
+    --json-number: #098658;
+    --json-literal: #0000ff;
+  }
+
+  :root[data-theme="dark"] {
+    --json-key: #9cdcfe;
+    --json-string: #ce9178;
+    --json-number: #b5cea8;
+    --json-literal: #569cd6;
+  }
+
+  :root[data-brackets="on"] .json-key { color: var(--json-key); }
+  :root[data-brackets="on"] .json-string { color: var(--json-string); }
+  :root[data-brackets="on"] .json-number { color: var(--json-number); }
+  :root[data-brackets="on"] .json-boolean,
+  :root[data-brackets="on"] .json-null { color: var(--json-literal); }
+
+  :root {
+    --status-info: #5b5b66;
+    --status-success: #047a00;
+    --status-redirect: #0060df;
+    --status-client-error: #9a4f00;
+    --status-server-error: #d70022;
+  }
+
+  :root[data-theme="dark"] {
+    --status-info: #b1b1b3;
+    --status-success: #54ffbd;
+    --status-redirect: #75bfff;
+    --status-client-error: #ffbd4f;
+    --status-server-error: #ff848b;
+  }
+
+  :root[data-brackets="on"] .status { font-weight: 600; }
+  :root[data-brackets="on"] .status-info { color: var(--status-info); }
+  :root[data-brackets="on"] .status-success { color: var(--status-success); }
+  :root[data-brackets="on"] .status-redirect { color: var(--status-redirect); }
+  :root[data-brackets="on"] .status-client-error { color: var(--status-client-error); }
+  :root[data-brackets="on"] .status-server-error { color: var(--status-server-error); }
+
+  :root {
+    --header-name: #8f00ad;
+    --header-value: #0c0c0d;
+    --http-method: #0060df;
+  }
+
+  :root[data-theme="dark"] {
+    --header-name: #d7a0ff;
+    --header-value: #f9f9fa;
+    --http-method: #75bfff;
+  }
+
+  :root[data-brackets="on"] .header-name { color: var(--header-name); }
+  :root[data-brackets="on"] .header-value { color: var(--header-value); }
+  :root[data-brackets="on"] .http-method { color: var(--http-method); font-weight: 600; }
+
+  .param-badge {
+    display: inline-block;
+    padding: 0 5px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.85em;
+    color: var(--muted);
+  }
+
+  :root[data-brackets="on"] .param-badge { color: var(--http-method); border-color: var(--http-method); }
+  :root[data-brackets="on"] .param-name { color: var(--json-key); }
+  :root[data-brackets="on"] .param-value { color: var(--json-string); }
+
+  .json-fold {
+    border: 0;
+    background: none;
+    padding: 0 2px 0 0;
+    font: inherit;
+    color: var(--muted);
+    cursor: pointer;
+  }
+
+  .json-fold:hover:not(:disabled) {
+    background: none;
+    color: var(--fg);
+  }
+
+  .json-fold::before {
+    content: "▾";
+  }
+
+  .json-fold[aria-expanded="false"]::before {
+    content: "▸";
+  }
+
+  .json-summary {
+    color: var(--muted);
+  }
+
   pre {
     white-space: pre-wrap;
     overflow-wrap: anywhere;
@@ -103,7 +244,10 @@
 
 <div id="header">
   <h2>Requests</h2>
-  <button id="theme-toggle" type="button">Theme</button>
+  <div id="header-actions">
+    <button id="bracket-toggle" type="button" aria-pressed="true">Colors: on</button>
+    <button id="theme-toggle" type="button">Theme</button>
+  </div>
 </div>
 <div id="toolbar">
   <input id="filter" type="search" placeholder="Filter by URL" aria-label="Filter by URL">

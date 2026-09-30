@@ -251,7 +251,7 @@ const JS_FORBIDDEN = [
   [/\b(caches|indexedDB|cookieStore|serviceWorker|Notification|PushManager)\b/, "other outbound-capable APIs"],
 ];
 
-const ALLOWED_ELEMENTS = new Set(["button", "h3", "pre", "details", "summary"]);
+const ALLOWED_ELEMENTS = new Set(["button", "h3", "pre", "details", "summary", "span"]);
 
 // The only extension APIs the code may call.
 const ALLOWED_BROWSER_CALLS = [

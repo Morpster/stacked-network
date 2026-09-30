@@ -225,6 +225,7 @@ expandButton.addEventListener("click", () => {
 function clearAll() {
   requests.length = 0;
   selectedRequest = null;
+  filterElement.value = "";
   detailsElement.textContent = "Select a request to see its details.";
   renderRequests();
 }

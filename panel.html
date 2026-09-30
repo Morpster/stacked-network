@@ -252,23 +252,35 @@
     animation: cat-breathe 3s ease-in-out infinite;
   }
 
-  .waiting-cat-tail {
-    display: inline-block;
-    transform-origin: left bottom;
-    animation: cat-tail 1.6s ease-in-out infinite;
-  }
-
   .waiting-cat-eyes {
     display: inline-block;
     animation: cat-blink 4s infinite;
   }
 
-  @keyframes cat-breathe {
-    50% { transform: translateY(-2px); }
+  .waiting-cat-puzzled {
+    display: inline-block;
+    font-weight: 700;
+    animation: cat-puzzled 1.8s ease-in-out infinite;
   }
 
-  @keyframes cat-tail {
-    50% { transform: rotate(-25deg); }
+  @keyframes cat-puzzled {
+    0%, 100% { transform: rotate(-12deg) translateY(0); }
+    50% { transform: rotate(12deg) translateY(-3px); }
+  }
+
+  .waiting-cat-snore {
+    display: inline-block;
+    color: var(--muted);
+    animation: cat-snore 2.4s ease-in-out infinite;
+  }
+
+  @keyframes cat-snore {
+    0%, 100% { opacity: 0.3; transform: translateY(2px); }
+    50% { opacity: 1; transform: translateY(-2px); }
+  }
+
+  @keyframes cat-breathe {
+    50% { transform: translateY(-2px); }
   }
 
   @keyframes cat-blink {
@@ -278,8 +290,9 @@
 
   @media (prefers-reduced-motion: reduce) {
     .waiting-cat-art,
-    .waiting-cat-tail,
-    .waiting-cat-eyes {
+    .waiting-cat-eyes,
+    .waiting-cat-snore,
+    .waiting-cat-puzzled {
       animation: none;
     }
   }

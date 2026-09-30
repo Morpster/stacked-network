@@ -251,9 +251,12 @@ function renderRequestList() {
 
   if (visible.length === 0) {
     if (requests.length === 0) {
-      requestsElement.replaceChildren(createWaitingCat());
+      requestsElement.replaceChildren(createCat(
+        "sleeping",
+        "Waiting for requests… reload the page to capture some."
+      ));
     } else {
-      requestsElement.textContent = "No requests match the filter.";
+      requestsElement.replaceChildren(createCat("confused", "No requests match the filter."));
     }
     return;
   }
@@ -698,28 +701,37 @@ function renderDetails(request) {
   detailsElement.append(bodyButton);
 }
 
-// Empty state: a small ASCII cat patiently waiting for traffic. The tail
-// and eyes are separate spans so CSS can animate them.
-function createWaitingCat() {
+// Empty states: small ASCII cats. "sleeping" (snoring) is shown while no
+// requests have been captured; "confused" when requests exist but none
+// match the filters. Animated bits are separate spans so CSS can move them.
+function createCat(style, text) {
   const wrapper = document.createElement("span");
   wrapper.className = "waiting-cat";
 
   const art = document.createElement("pre");
   art.className = "waiting-cat-art";
   art.setAttribute("aria-hidden", "true");
-  const eyes = createSpan("waiting-cat-eyes", "o.o");
-  const tail = createSpan("waiting-cat-tail", "~");
-  art.append(
-    " /\\_/\\\n",
-    "( ", eyes, " )\n",
-    " > ^ <\n",
-    "(_) (_)", tail
-  );
 
-  const message = createSpan(
-    "waiting-cat-message",
-    "Waiting for requests… reload the page to capture some."
-  );
+  if (style === "sleeping") {
+    const snore = createSpan("waiting-cat-snore", "zZz");
+    art.append(
+      "    |\\      _,,,---,,_\n",
+      snore, " /,`.-'`'    -.  ;-;;,_\n",
+      "   |,4-  ) )-,_. ,\\ (  `'-'\n",
+      "  '---''(_/--'  `-'\\_)"
+    );
+  } else {
+    const eyes = createSpan("waiting-cat-eyes", "o.O");
+    const puzzled = createSpan("waiting-cat-puzzled", "?");
+    art.append(
+      " /\\_/\\  ", puzzled, "\n",
+      "( ", eyes, " )\n",
+      " > ~ <\n",
+      "(_) (_)"
+    );
+  }
+
+  const message = createSpan("waiting-cat-message", text);
   wrapper.append(art, message);
   return wrapper;
 }

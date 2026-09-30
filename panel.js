@@ -162,7 +162,7 @@ function createMultiFilter(root, { label, noun, getValue, compare, renderValue }
   renderTrigger();
   return {
     matches: value => selected.size === 0 || selected.has(value),
-    // Keep an open menu in sync as new requests arrive.
+    // Keep a visible menu in sync as new requests arrive.
     refresh: () => { if (!menu.hidden) renderMenu(); },
   };
 }

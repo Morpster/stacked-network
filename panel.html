@@ -53,6 +53,18 @@
     background: var(--control-hover);
   }
 
+  /* Header + toolbar stay pinned while the page scrolls. Negative margins
+     stretch the background over the body padding so nothing shows through. */
+  #sticky-bar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    margin: -12px -12px 8px;
+    padding: 12px 12px 4px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+  }
+
   #header {
     display: flex;
     align-items: center;
@@ -435,6 +447,7 @@
   }
 </style>
 
+<div id="sticky-bar">
 <div id="header">
   <h2>Requests</h2>
   <div id="header-actions">
@@ -455,6 +468,7 @@
   </div>
   <button id="expand-list" type="button" aria-pressed="false">Expand list</button>
   <button id="clear">Clear</button>
+</div>
 </div>
 <div id="requests-frame"><div id="requests">Waiting for requests…</div></div>
 <section id="details" aria-live="polite">Select a request to see its details.</section>

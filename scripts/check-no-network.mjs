@@ -159,9 +159,22 @@ if (files.includes("manifest.json")) {
       if (key !== "gecko") fail("manifest.json", `browser_specific_settings.${key} is not allowed`);
     }
     for (const key of Object.keys(bss.gecko ?? {})) {
-      if (!["id", "strict_min_version", "strict_max_version"].includes(key)) {
+      if (!["id", "strict_min_version", "strict_max_version", "data_collection_permissions"].includes(key)) {
         fail("manifest.json", `browser_specific_settings.gecko.${key} is not allowed`);
       }
+    }
+
+    const dataPermissions = bss.gecko?.data_collection_permissions;
+    if (
+      !dataPermissions ||
+      typeof dataPermissions !== "object" ||
+      Array.isArray(dataPermissions) ||
+      Object.keys(dataPermissions).length !== 1 ||
+      !Array.isArray(dataPermissions.required) ||
+      dataPermissions.required.length !== 1 ||
+      dataPermissions.required[0] !== "none"
+    ) {
+      fail("manifest.json", 'data_collection_permissions must be exactly {"required":["none"]}');
     }
   }
 }

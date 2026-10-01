@@ -39,6 +39,7 @@ const EXTENSION_FILES = new Set([
   "panel.js",
   "no-network.js",
   "icon.svg",
+  "logo.svg",
 ]);
 
 const PROTECTED_FILES = [
@@ -75,6 +76,7 @@ for (const file of files) {
 }
 
 for (const file of EXTENSION_FILES) {
+  if (file === "logo.svg") continue; // optional
   if (!files.includes(file)) fail(file, "required file is missing");
 }
 
@@ -136,12 +138,28 @@ if (files.includes("manifest.json")) {
       "name",
       "version",
       "description",
+      "icons",
       "devtools_page",
       "content_security_policy",
       "browser_specific_settings",
     ]);
     for (const key of Object.keys(manifest)) {
       if (!allowedKeys.has(key)) fail("manifest.json", `key "${key}" is not allowed`);
+    }
+
+    if (manifest.icons !== undefined) {
+      const icons = manifest.icons;
+      if (!icons || typeof icons !== "object" || Array.isArray(icons)) {
+        fail("manifest.json", "icons must be an object");
+      } else {
+        for (const [size, path] of Object.entries(icons)) {
+          if (!/^\d+$/.test(size) || (path !== "icon.svg" && path !== "logo.svg")) {
+            fail("manifest.json", `icons.${size} must be a local "icon.svg" or "logo.svg"`);
+          } else if (!files.includes(path)) {
+            fail("manifest.json", `icons.${size} points to missing file "${path}"`);
+          }
+        }
+      }
     }
 
     if (manifest.manifest_version !== 2) {
@@ -287,12 +305,31 @@ for (const file of ["devtools.js", "panel.js"]) {
 // 7. Icon: plain shapes only.
 // ---------------------------------------------------------------------------
 
-if (files.includes("icon.svg")) {
-  const svg = read(join(target, "icon.svg"));
+for (const iconFile of ["icon.svg", "logo.svg"]) {
+  if (!files.includes(iconFile)) continue;
+  const svg = read(join(target, iconFile));
   const bad = svg.match(
     /<\s*(script|foreignObject|image|use|a|style|iframe|feImage)\b|\son[a-z]+\s*=|href|url\s*\(|@import|[a-z][a-z0-9+.-]*:\/\/(?!www\.w3\.org\/2000\/svg")/i
   );
-  if (bad) fail("icon.svg", `contains "${bad[0]}"`);
+  if (bad) fail(iconFile, `contains "${bad[0]}"`);
+
+  // Allowlist on top of the blocklist: only plain shape elements and
+  // presentation attributes, so nothing can reference or load anything.
+  const SVG_ELEMENTS = new Set(["svg", "g", "rect", "circle", "ellipse", "polygon", "polyline", "line", "path"]);
+  const SVG_ATTRIBUTES = new Set([
+    "xmlns", "viewBox", "width", "height", "x", "y", "rx", "ry", "cx", "cy", "r",
+    "x1", "y1", "x2", "y2", "points", "d", "fill", "fill-opacity", "fill-rule",
+    "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin", "opacity", "transform",
+  ]);
+  for (const tag of svg.matchAll(/<\s*([a-zA-Z][\w:-]*)([^>]*)>/g)) {
+    if (!SVG_ELEMENTS.has(tag[1])) fail(iconFile, `element <${tag[1]}> is not allowed`);
+    for (const attr of tag[2].matchAll(/([^\s=/]+)\s*=/g)) {
+      if (!SVG_ATTRIBUTES.has(attr[1])) fail(iconFile, `attribute "${attr[1]}" is not allowed`);
+    }
+  }
+  if (/<!|<\?/.test(svg.replace(/^\s*<\?xml[^>]*\?>/, ""))) {
+    fail(iconFile, "DOCTYPE, entities, comments and processing instructions are not allowed");
+  }
 }
 
 // ---------------------------------------------------------------------------

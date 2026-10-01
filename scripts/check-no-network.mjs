@@ -39,6 +39,7 @@ const EXTENSION_FILES = new Set([
   "panel.js",
   "no-network.js",
   "icon.svg",
+  "logo.svg",
 ]);
 
 const PROTECTED_FILES = [
@@ -136,12 +137,26 @@ if (files.includes("manifest.json")) {
       "name",
       "version",
       "description",
+      "icons",
       "devtools_page",
       "content_security_policy",
       "browser_specific_settings",
     ]);
     for (const key of Object.keys(manifest)) {
       if (!allowedKeys.has(key)) fail("manifest.json", `key "${key}" is not allowed`);
+    }
+
+    if (manifest.icons !== undefined) {
+      const icons = manifest.icons;
+      if (!icons || typeof icons !== "object" || Array.isArray(icons)) {
+        fail("manifest.json", "icons must be an object");
+      } else {
+        for (const [size, path] of Object.entries(icons)) {
+          if (!/^\d+$/.test(size) || (path !== "icon.svg" && path !== "logo.svg")) {
+            fail("manifest.json", `icons.${size} must be a local "icon.svg" or "logo.svg"`);
+          }
+        }
+      }
     }
 
     if (manifest.manifest_version !== 2) {
@@ -287,12 +302,13 @@ for (const file of ["devtools.js", "panel.js"]) {
 // 7. Icon: plain shapes only.
 // ---------------------------------------------------------------------------
 
-if (files.includes("icon.svg")) {
-  const svg = read(join(target, "icon.svg"));
+for (const iconFile of ["icon.svg", "logo.svg"]) {
+  if (!files.includes(iconFile)) continue;
+  const svg = read(join(target, iconFile));
   const bad = svg.match(
     /<\s*(script|foreignObject|image|use|a|style|iframe|feImage)\b|\son[a-z]+\s*=|href|url\s*\(|@import|[a-z][a-z0-9+.-]*:\/\/(?!www\.w3\.org\/2000\/svg")/i
   );
-  if (bad) fail("icon.svg", `contains "${bad[0]}"`);
+  if (bad) fail(iconFile, `contains "${bad[0]}"`);
 }
 
 // ---------------------------------------------------------------------------

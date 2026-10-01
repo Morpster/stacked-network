@@ -1,4 +1,5 @@
 # Stacked Network
+![Stacked Network logo](logo.svg)
 
 Stacked Network is a Firefox DevTools extension that shows finished network requests in a single-column **Requests** panel. It is designed for inspecting requests and responses without switching between multiple views.
 
